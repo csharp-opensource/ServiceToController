@@ -8,6 +8,18 @@
     <Company>BarNuri</Company>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Remove="pack\**" />
+    <Compile Remove="SampleWebApp\**" />
+    <EmbeddedResource Remove="pack\**" />
+    <EmbeddedResource Remove="SampleWebApp\**" />
+    <None Remove="pack\**" />
+    <None Remove="SampleWebApp\**" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Remove=".gitignore" />
+    <None Remove="Readme.md" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Core" Version="2.2.5" />
   </ItemGroup>
 </Project>
