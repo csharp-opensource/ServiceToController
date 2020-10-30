@@ -10,13 +10,14 @@ namespace ServiceToController
 {
     public static class ServiceToController
     {
-        public static void AddCastedService<T>(this IMvcBuilder mvcBuilder, Func<Type, object> createInstanceOfCastedType = null, bool addTestMethod = true)
+        public static object AddCastedService<T>(this IMvcBuilder mvcBuilder, Func<Type, object> createInstanceOfCastedType = null, bool addTestMethod = true)
         {
             var castedType = Cast<T>(addTestMethod); // create controller type
-            createInstanceOfCastedType = createInstanceOfCastedType == null ? (type) => Activator.CreateInstance(type) : createInstanceOfCastedType; // set defualt instance creator
+            if (createInstanceOfCastedType == null) { createInstanceOfCastedType = (type) => Activator.CreateInstance(type); } // set defualt instance creator
             var instance = createInstanceOfCastedType(castedType);  // create instance of this type
             mvcBuilder.Services.AddSingleton(castedType, instance); // add controller as a service
             mvcBuilder.AddApplicationPart(castedType.Assembly); // map controller
+            return instance;
         }
         public static Type Cast<T>(bool addTestMethod = true)
         {
