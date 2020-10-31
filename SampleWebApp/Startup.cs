@@ -30,8 +30,9 @@ namespace SampleWebApp
                 });
             });
             var builder = services.AddControllers().AddControllersAsServices();
-            builder.AddCastedService<MyService>(castOptions: new CastOptions
+            dynamic mainInstance = builder.AddCastedService<MyService>(castOptions: new CastOptions
             {
+                UseNewInstanceEveryMethod = true,
                 BeforeMethod = (_) => Console.WriteLine("BeforeMethod"),
                 AfterMethod = (_, res) =>
                 {
@@ -42,6 +43,7 @@ namespace SampleWebApp
                     return res;
                 }
             });
+            mainInstance.IsNew = false;
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.

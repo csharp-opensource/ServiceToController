@@ -6,6 +6,8 @@ public class MyService
     {
         return Task.FromResult(obj);
     }
+    public bool IsNew { get; set; } = true;
+
 }
 
 public class MyObject

@@ -11,11 +11,10 @@ namespace ServiceToController
 {
     public static class ServiceToController
     {
-        public static object AddCastedService<T>(this IMvcBuilder mvcBuilder, Func<Type, object> createInstanceOfCastedType = null, CastOptions castOptions = null)
+        public static object AddCastedService<T>(this IMvcBuilder mvcBuilder, CastOptions castOptions = null)
         {
             var castedType = Cast<T>(castOptions); // create controller type
-            if (createInstanceOfCastedType == null) { createInstanceOfCastedType = (type) => Activator.CreateInstance(type); } // set defualt instance creator
-            var instance = createInstanceOfCastedType(castedType);  // create instance of this type
+            var instance = castOptions.CreateInstanceFunc(castedType);  // create instance of this type
             mvcBuilder.Services.AddSingleton(castedType, instance); // add controller as a service
             mvcBuilder.AddApplicationPart(castedType.Assembly); // map controller
             return instance;
@@ -27,8 +26,10 @@ namespace ServiceToController
             var dynamicNamespace = new AssemblyName(type.GetTypeInfo().Assembly.GetTypes().Select(x => x.Namespace).First(x => x != null));
             var assemblyBuilder = AssemblyBuilder.DefineDynamicAssembly(dynamicNamespace, AssemblyBuilderAccess.Run).DefineDynamicModule(dynamicNamespace.Name);
             var classProxy = assemblyBuilder.DefineType(type.Name + "Controller", TypeAttributes.Public, type);
-            classProxy.SetParent(typeof(ControllerBase)); // make this class a controller
+            classProxy.SetParent(type); // make this class a controller
             var apiPath = string.IsNullOrEmpty(castOptions.ApiPath) ? $"/api/{classProxy.Name}" : castOptions.ApiPath;
+
+
 
             if (castOptions.AddTestMethod)
             {
@@ -56,12 +57,24 @@ namespace ServiceToController
                 );
 
                 var ilgen = methodBuilder.GetILGenerator();
+                var newInstance = castOptions.CreateInstanceFunc(type);
+                Action loadNewInstanceOrThis = () =>
+                {
+                    if (castOptions.UseNewInstanceEveryMethod)
+                    {
+                        ilgen.Emit_LdInst(newInstance);
+                    }
+                    else
+                    {
+                        ilgen.Emit(OpCodes.Ldarg_0); // load this ref to stack
+                    }
+                };
+
                 // Before Method
                 ilgen.Emit_LdInst(castOptions);
-                ilgen.Emit(OpCodes.Ldarg_0); // load this
+                loadNewInstanceOrThis();
                 ilgen.Emit(OpCodes.Callvirt, typeof(CastOptions).GetMethod("ExecBeforeMethod", new Type[] { typeof(object) }));
-
-                ilgen.Emit(OpCodes.Ldarg_0); // load this ref to stack
+                loadNewInstanceOrThis();
                 for (int i = 0; i < existingParams.Count; i++)
                 {
                     var x = existingParams[i];
@@ -81,7 +94,7 @@ namespace ServiceToController
                 // After Method
                 ilgen.DeclareLocal(typeof(object));
                 ilgen.Emit_LdInst(castOptions);
-                ilgen.Emit(OpCodes.Ldarg_0); // load this
+                loadNewInstanceOrThis();
                 ilgen.Emit(OpCodes.Ldloc_0); //load res from local
                 ilgen.Emit(OpCodes.Callvirt, typeof(CastOptions).GetMethod("ExecAfterMethod", new Type[] { typeof(object), typeof(object) }));
                 ilgen.Emit(OpCodes.Ret); // return

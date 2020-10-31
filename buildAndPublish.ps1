@@ -17,6 +17,10 @@ $xml.Project.PropertyGroup.Version = $version
 #Save csproj (XML)
 $xml.Save($path)
 
+git add .
+git commit -m "upload version $version"
+git push
+
 Remove-Item './pack' -Recurse
 dotnet pack -c Release -o ./pack
 dotnet nuget push "./pack/ServiceToController.$version.nupkg" --api-key $env:NugetApiKey --source https://api.nuget.org/v3/index.json
