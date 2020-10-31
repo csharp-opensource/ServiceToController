@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Reflection;
 using System.Threading.Tasks;
 
 namespace ServiceToController
@@ -13,5 +14,6 @@ namespace ServiceToController
         public Func<object, object, object> AfterMethod { get; set; } = (_, __) => __;
         public void ExecBeforeMethod(object instance) => BeforeMethod(instance);
         public object ExecAfterMethod(object instance, object res) => AfterMethod(instance, res);
+        public Func<MethodInfo, bool> MethodFilter { get; set; } = null;
     }
 }

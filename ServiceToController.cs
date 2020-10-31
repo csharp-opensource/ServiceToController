@@ -45,8 +45,9 @@ namespace ServiceToController
             // get all parent methods tasks
             var methods = type
                 .GetMethods((BindingFlags)(-1))
-                .Where(x => x.IsPublic && (x.ReturnType == typeof(Task) || (x.ReturnType.IsGenericType && x.ReturnType.GetGenericTypeDefinition() == typeof(Task<>))))
+                .Where(castOptions.MethodFilter ?? (x => x != null))
                 .ToList();
+
 
             foreach (var existingMethod in methods)
             {
