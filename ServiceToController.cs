@@ -29,7 +29,9 @@ namespace ServiceToController
             classProxy.SetParent(type); // make this class a controller
             var apiPath = string.IsNullOrEmpty(castOptions.ApiPath) ? $"/api/{classProxy.Name}" : castOptions.ApiPath;
 
-
+            classProxy.SetCustomAttribute(new CustomAttributeBuilder(typeof(ProducesAttribute).GetConstructor(new Type[] { typeof(string), typeof(string[]) }), new object[] { "application/json", new string[] { } }));
+            classProxy.SetCustomAttribute(new CustomAttributeBuilder(typeof(RouteAttribute).GetConstructor(new Type[] { typeof(string) }), new object[] { "api/[controller]" }));
+            classProxy.SetCustomAttribute(new CustomAttributeBuilder(typeof(ApiControllerAttribute).GetConstructor(new Type[] { }), new object[] { }));
 
             if (castOptions.AddTestMethod)
             {
@@ -104,9 +106,6 @@ namespace ServiceToController
             return classProxy.CreateType();
         }
 
-        /// <summary>
-        /// Burn an reference to the specified runtime object instance into the DynamicMethod
-        /// </summary>
         public static void Emit_LdInst<TInst>(this ILGenerator il, TInst inst) where TInst : class
         {
             var gch = GCHandle.Alloc(inst);
@@ -120,8 +119,6 @@ namespace ServiceToController
                 il.Emit(OpCodes.Ldc_I8, ptr.ToInt64());
             }
             il.Emit(OpCodes.Ldobj, typeof(TInst));
-            /// Do this only if you can otherwise ensure that 'inst' outlives the DynamicMethod
-            // gch.Free();
         }
     }
 }
