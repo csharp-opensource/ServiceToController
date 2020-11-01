@@ -27,6 +27,7 @@ namespace ServiceToController
             var assemblyBuilder = AssemblyBuilder.DefineDynamicAssembly(dynamicNamespace, AssemblyBuilderAccess.Run).DefineDynamicModule(dynamicNamespace.Name);
             var classProxy = assemblyBuilder.DefineType(type.Name + "Controller", TypeAttributes.Public, type);
             classProxy.SetParent(type); // make this class a controller
+            classProxy.CreatePassThroughConstructors(type);
             var apiPath = string.IsNullOrEmpty(castOptions.ApiPath) ? $"/api/{classProxy.Name}" : castOptions.ApiPath;
 
             classProxy.SetCustomAttribute(new CustomAttributeBuilder(typeof(ProducesAttribute).GetConstructor(new Type[] { typeof(string), typeof(string[]) }), new object[] { "application/json", new string[] { } }));
