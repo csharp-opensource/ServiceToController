@@ -53,8 +53,9 @@ namespace ServiceToController
             foreach (var existingMethod in methods)
             {
                 var existingParams = existingMethod.GetParameters().ToList();
+                var methodName = castOptions.MethodNameRefactor(existingMethod.Name);
                 var methodBuilder = classProxy.DefineMethod(
-                    castOptions.MethodNameRefactor(existingMethod.Name),
+                    methodName,
                     MethodAttributes.Public,
                     existingMethod.ReturnType,
                     existingParams.Select(x => x.ParameterType).ToArray()
@@ -103,7 +104,7 @@ namespace ServiceToController
                 ilgen.Emit(OpCodes.Callvirt, typeof(CastOptions).GetMethod("ExecAfterMethod", new Type[] { typeof(object), typeof(object) }));
                 ilgen.Emit(OpCodes.Ret); // return
 
-                methodBuilder.SetCustomAttribute(new CustomAttributeBuilder(typeof(HttpPostAttribute).GetConstructor(new Type[] { typeof(string) }), new object[] { $"{apiPath}/{existingMethod.Name}" }));
+                methodBuilder.SetCustomAttribute(new CustomAttributeBuilder(typeof(HttpPostAttribute).GetConstructor(new Type[] { typeof(string) }), new object[] { $"{apiPath}/{methodName}" }));
             }
             return classProxy.CreateType();
         }
