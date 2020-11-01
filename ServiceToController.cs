@@ -30,9 +30,9 @@ namespace ServiceToController
             classProxy.CreatePassThroughConstructors(type);
             var apiPath = string.IsNullOrEmpty(castOptions.ApiPath) ? $"/api/{classProxy.Name}" : castOptions.ApiPath;
 
-            classProxy.SetCustomAttribute(new CustomAttributeBuilder(typeof(ProducesAttribute).GetConstructor(new Type[] { typeof(string), typeof(string[]) }), new object[] { "application/json", new string[] { } }));
-            classProxy.SetCustomAttribute(new CustomAttributeBuilder(typeof(RouteAttribute).GetConstructor(new Type[] { typeof(string) }), new object[] { "api/[controller]" }));
-            classProxy.SetCustomAttribute(new CustomAttributeBuilder(typeof(ApiControllerAttribute).GetConstructor(new Type[] { }), new object[] { }));
+            // classProxy.SetCustomAttribute(new CustomAttributeBuilder(typeof(ProducesAttribute).GetConstructor(new Type[] { typeof(string), typeof(string[]) }), new object[] { "application/json", new string[] { } }));
+            // classProxy.SetCustomAttribute(new CustomAttributeBuilder(typeof(RouteAttribute).GetConstructor(new Type[] { typeof(string) }), new object[] { "api/[controller]" }));
+            // classProxy.SetCustomAttribute(new CustomAttributeBuilder(typeof(ApiControllerAttribute).GetConstructor(new Type[] { }), new object[] { }));
 
             if (castOptions.AddTestMethod)
             {
