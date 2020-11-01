@@ -12,6 +12,6 @@ public class MyService
 
 public class MyObject
 {
-    public string Name { get; set; }
+    public string? Name { get; set; }
 }
 

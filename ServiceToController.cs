@@ -5,23 +5,23 @@ using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.InteropServices;
-using System.Threading.Tasks;
 
 namespace ServiceToController
 {
     public static class ServiceToController
     {
-        public static object AddCastedService<T>(this IMvcBuilder mvcBuilder, CastOptions castOptions = null)
+        public static object AddCastedService<T>(this IMvcBuilder mvcBuilder, CastOptions? castOptions = null)
         {
+            castOptions ??= new CastOptions();
             var castedType = Cast<T>(castOptions); // create controller type
             var instance = castOptions.CreateInstanceFunc(castedType);  // create instance of this type
             mvcBuilder.Services.AddSingleton(castedType, instance); // add controller as a service
             mvcBuilder.AddApplicationPart(castedType.Assembly); // map controller
             return instance;
         }
-        public static Type Cast<T>(CastOptions castOptions = null)
+        public static Type Cast<T>(CastOptions? castOptions = null)
         {
-            if (castOptions == null) { castOptions = new CastOptions(); }
+            castOptions ??= new CastOptions();
             var type = typeof(T);
             var dynamicNamespace = new AssemblyName(type.GetTypeInfo().Assembly.GetTypes().Select(x => x.Namespace).First(x => x != null));
             var assemblyBuilder = AssemblyBuilder.DefineDynamicAssembly(dynamicNamespace, AssemblyBuilderAccess.Run).DefineDynamicModule(dynamicNamespace.Name);
@@ -61,7 +61,7 @@ namespace ServiceToController
 
                 var ilgen = methodBuilder.GetILGenerator();
                 var newInstance = castOptions.CreateInstanceFunc(type);
-                Action loadNewInstanceOrThis = () =>
+                void loadNewInstanceOrThis()
                 {
                     if (castOptions.UseNewInstanceEveryMethod)
                     {
@@ -71,7 +71,7 @@ namespace ServiceToController
                     {
                         ilgen.Emit(OpCodes.Ldarg_0); // load this ref to stack
                     }
-                };
+                }
 
                 // Before Method
                 ilgen.Emit_LdInst(castOptions);
