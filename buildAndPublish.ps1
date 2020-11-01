@@ -22,7 +22,9 @@ git commit -m "upload version $version"
 git push
 
 Remove-Item './pack' -Recurse
+Remove-Item './bin' -Recurse
+Remove-Item './obj' -Recurse
+dotnet restore
+dotnet build -c Release
 dotnet pack -c Release -o ./pack
 dotnet nuget push "./pack/ServiceToController.$version.nupkg" --api-key $env:NugetApiKey --source https://api.nuget.org/v3/index.json
-
-
