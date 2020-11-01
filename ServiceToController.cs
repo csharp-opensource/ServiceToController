@@ -25,7 +25,7 @@ namespace ServiceToController
             var type = typeof(T);
             var dynamicNamespace = new AssemblyName(type.GetTypeInfo().Assembly.GetTypes().Select(x => x.Namespace).First(x => x != null));
             var assemblyBuilder = AssemblyBuilder.DefineDynamicAssembly(dynamicNamespace, AssemblyBuilderAccess.Run).DefineDynamicModule(dynamicNamespace.Name);
-            var classProxy = assemblyBuilder.DefineType(type.Name + "Controller", TypeAttributes.Public, type);
+            var classProxy = assemblyBuilder.DefineType(castOptions.CustomClassName ?? (type.Name + "Controller"), TypeAttributes.Public, type);
             classProxy.SetParent(type); // make this class a controller
             classProxy.CreatePassThroughConstructors(type);
             var apiPath = string.IsNullOrEmpty(castOptions.ApiPath) ? $"/api/{classProxy.Name}" : castOptions.ApiPath;
@@ -54,7 +54,7 @@ namespace ServiceToController
             {
                 var existingParams = existingMethod.GetParameters().ToList();
                 var methodBuilder = classProxy.DefineMethod(
-                    existingMethod.Name + "Post",
+                    castOptions.MethodNameRefactor(existingMethod.Name),
                     MethodAttributes.Public,
                     existingMethod.ReturnType,
                     existingParams.Select(x => x.ParameterType).ToArray()

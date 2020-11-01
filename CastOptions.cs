@@ -6,6 +6,8 @@ namespace ServiceToController
 {
     public class CastOptions
     {
+        public string? CustomClassName { get; set; }
+        public Func<string, string> MethodNameRefactor = x => x;
         public bool AddTestMethod { get; set; } = true;
         public string? ApiPath { get; set; }
         public Func<Type, object> CreateInstanceFunc { get; set; } = (type) => Activator.CreateInstance(type);
