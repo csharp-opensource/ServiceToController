@@ -60,18 +60,19 @@ namespace ServiceToController
                 methodNames[methodName] = counter + 1;
                 methodName += counter == 0 ? "" : counter.ToString();
                 var exposeMethod = methods.Contains(existingMethod);
-                var methodBuilder = classProxy.CopyMethod(existingMethod, castOptions, methodName, exposeMethod, $"{apiPath}/{methodName}");
+                classProxy.CopyMethod(existingMethod, castOptions, methodName, exposeMethod, $"{apiPath}/{methodName}");
             }
             return classProxy.CreateType();
         }
 
-        private static MethodBuilder CopyMethod<T>(this TypeBuilder classProxy, MethodInfo existingMethod, CastOptions<T> castOptions, string methodName, bool exposeMethod, string route) where T : class
+        private static MethodBuilder? CopyMethod<T>(this TypeBuilder classProxy, MethodInfo existingMethod, CastOptions<T> castOptions, string methodName, bool exposeMethod, string route) where T : class
         {
+            if (!exposeMethod) { return null; }
             var type = typeof(T);
             var existingParams = existingMethod.GetParameters().ToList();
             var methodBuilder = classProxy.DefineMethod(
                 methodName,
-                !exposeMethod ? MethodAttributes.Private | MethodAttributes.NewSlot | MethodAttributes.HideBySig : MethodAttributes.Public | MethodAttributes.NewSlot | MethodAttributes.CheckAccessOnOverride,
+                MethodAttributes.Public,
                 existingMethod.ReturnType,
                 existingParams.Select(x => x.ParameterType).ToArray()
             );
@@ -135,11 +136,6 @@ namespace ServiceToController
             else
             {
                 methodBuilder.SetCustomAttribute(new CustomAttributeBuilder(typeof(HttpPostAttribute).GetConstructor(new Type[] { typeof(string) }), new object[] { route }));
-            }
-
-            if (existingMethod.IsAbstract || existingMethod.IsVirtual)
-            {
-                classProxy.DefineMethodOverride(methodBuilder, existingMethod);
             }
 
             return methodBuilder;
