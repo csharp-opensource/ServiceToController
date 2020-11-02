@@ -41,7 +41,8 @@ namespace SampleWebApp
                         obj.Result.Name += "-AfterMethod";
                     }
                     return res;
-                }
+                },
+                MethodFilter = x => (x.ReturnType.IsGenericType && x.ReturnType.GetGenericTypeDefinition() == typeof(Task<>)),
             });
             mainInstance.IsNew = false;
         }

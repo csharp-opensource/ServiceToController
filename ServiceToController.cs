@@ -1,6 +1,8 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
+using NSwag.Annotations;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
@@ -30,13 +32,9 @@ namespace ServiceToController
             classProxy.CreatePassThroughConstructors(type);
             var apiPath = string.IsNullOrEmpty(castOptions.ApiPath) ? $"/api/{classProxy.Name}" : castOptions.ApiPath;
 
-            classProxy.SetCustomAttribute(new CustomAttributeBuilder(typeof(RouteAttribute).GetConstructor(new Type[] { typeof(string) }), new object[] { "api/[controller]" }));
-            classProxy.SetCustomAttribute(new CustomAttributeBuilder(typeof(ProducesAttribute).GetConstructor(new Type[] { typeof(string), typeof(string[]) }), new object[] { "application/json", new string[] { } }));
-            classProxy.SetCustomAttribute(new CustomAttributeBuilder(typeof(ApiControllerAttribute).GetConstructor(new Type[] { }), new object[] { }));
-
             if (castOptions.AddTestMethod)
             {
-                var method = classProxy.DefineMethod("test", MethodAttributes.Public, typeof(string), null);
+                var method = classProxy.DefineMethod("test", MethodAttributes.Public | MethodAttributes.NewSlot | MethodAttributes.CheckAccessOnOverride, typeof(string), null);
                 method.SetCustomAttribute(new CustomAttributeBuilder(typeof(HttpGetAttribute).GetConstructor(new Type[] { typeof(string) }), new object[] { $"{apiPath}/test" }));
                 var ilgen = method.GetILGenerator();
                 ilgen.Emit(OpCodes.Ldstr, "OK"); // push ok to stack
@@ -45,71 +43,98 @@ namespace ServiceToController
 
             var props = type.GetProperties((BindingFlags)(-1)).Select(x => x.Name).ToList();
 
-            // get all parent methods tasks
-            var methods = type
-                .GetMethods((BindingFlags)(-1))
+            var allMethods = type
+                .GetMethods((BindingFlags)(-1));
+
+            var methods = allMethods
                 .Where(castOptions.MethodFilter ?? (x => x != null))
                 .Where(x => !props.Any(p => x.Name == $"get_{p}" || x.Name == $"set_{p}"))
                 .ToList();
 
+            var methodNames = new Dictionary<string, int>();
 
-            foreach (var existingMethod in methods)
+            foreach (var existingMethod in allMethods)
             {
-                var existingParams = existingMethod.GetParameters().ToList();
                 var methodName = castOptions.MethodNameRefactor(existingMethod.Name);
-                var methodBuilder = classProxy.DefineMethod(
-                    methodName,
-                    MethodAttributes.Public,
-                    existingMethod.ReturnType,
-                    existingParams.Select(x => x.ParameterType).ToArray()
-                );
-
-                var ilgen = methodBuilder.GetILGenerator();
-                var newInstance = castOptions.CreateInstanceFunc(type);
-                void loadNewInstanceOrThis()
-                {
-                    if (castOptions.UseNewInstanceEveryMethod)
-                    {
-                        ilgen.Emit_LdInst(newInstance);
-                    }
-                    else
-                    {
-                        ilgen.Emit(OpCodes.Ldarg_0); // load this ref to stack
-                    }
-                }
-
-                // Before Method
-                ilgen.Emit_LdInst(castOptions);
-                loadNewInstanceOrThis();
-                ilgen.Emit(OpCodes.Callvirt, typeof(CastOptions<T>).GetMethod("ExecBeforeMethod", new Type[] { typeof(T) }));
-                loadNewInstanceOrThis();
-                for (int i = 0; i < existingParams.Count; i++)
-                {
-                    var x = existingParams[i];
-                    var p = methodBuilder.DefineParameter(i + 1, x.Attributes, x.Name);
-
-                    // if only one parameter, get from body
-                    if (existingParams.Count == 1)
-                    {
-                        p.SetCustomAttribute(new CustomAttributeBuilder(typeof(FromBodyAttribute).GetConstructor(new Type[] { }), new object[] { }));
-                    }
-
-                    ilgen.Emit(OpCodes.Ldarg_S, i + 1); // push paramater to stack
-                }
-                ilgen.Emit(OpCodes.Callvirt, existingMethod); // call parent method
-                ilgen.Emit(OpCodes.Stloc_0);
-
-                // After Method
-                ilgen.DeclareLocal(typeof(object));
-                ilgen.Emit_LdInst(castOptions);
-                loadNewInstanceOrThis();
-                ilgen.Emit(OpCodes.Ldloc_0); //load res from local
-                ilgen.Emit(OpCodes.Callvirt, typeof(CastOptions<T>).GetMethod("ExecAfterMethod", new Type[] { typeof(T), typeof(object) }));
-                ilgen.Emit(OpCodes.Ret); // return
-
-                methodBuilder.SetCustomAttribute(new CustomAttributeBuilder(typeof(HttpPostAttribute).GetConstructor(new Type[] { typeof(string) }), new object[] { $"{apiPath}/{methodName}" }));
+                var counter = methodNames.GetValueOrDefault(methodName, 0);
+                methodNames[methodName] = counter + 1;
+                methodName += counter == 0 ? "" : counter.ToString();
+                var exposeMethod = methods.Contains(existingMethod);
+                var methodBuilder = classProxy.CopyMethod(existingMethod, castOptions, methodName, exposeMethod, $"{apiPath}/{methodName}");
             }
             return classProxy.CreateType();
+        }
+
+        private static MethodBuilder CopyMethod<T>(this TypeBuilder classProxy, MethodInfo existingMethod, CastOptions<T> castOptions, string methodName, bool exposeMethod, string route) where T : class
+        {
+            var type = typeof(T);
+            var existingParams = existingMethod.GetParameters().ToList();
+            var methodBuilder = classProxy.DefineMethod(
+                methodName,
+                !exposeMethod ? MethodAttributes.Private | MethodAttributes.NewSlot | MethodAttributes.HideBySig : MethodAttributes.Public | MethodAttributes.NewSlot | MethodAttributes.CheckAccessOnOverride,
+                existingMethod.ReturnType,
+                existingParams.Select(x => x.ParameterType).ToArray()
+            );
+
+            var ilgen = methodBuilder.GetILGenerator();
+            var newInstance = castOptions.CreateInstanceFunc(type);
+            void loadNewInstanceOrThis()
+            {
+                if (castOptions.UseNewInstanceEveryMethod)
+                {
+                    ilgen.Emit_LdInst(newInstance);
+                }
+                else
+                {
+                    ilgen.Emit(OpCodes.Ldarg_0); // load this ref to stack
+                }
+            }
+
+            // Before Method
+            ilgen.Emit_LdInst(castOptions);
+            loadNewInstanceOrThis();
+            ilgen.Emit(OpCodes.Callvirt, typeof(CastOptions<T>).GetMethod("ExecBeforeMethod", new Type[] { typeof(T) }));
+            loadNewInstanceOrThis();
+            for (int i = 0; i < existingParams.Count; i++)
+            {
+                var x = existingParams[i];
+                var p = methodBuilder.DefineParameter(i + 1, x.Attributes, x.Name);
+
+                // if only one parameter, get from body
+                if (existingParams.Count == 1)
+                {
+                    p.SetCustomAttribute(new CustomAttributeBuilder(typeof(FromBodyAttribute).GetConstructor(new Type[] { }), new object[] { }));
+                }
+
+                ilgen.Emit(OpCodes.Ldarg_S, i + 1); // push paramater to stack
+            }
+            ilgen.Emit(OpCodes.Callvirt, existingMethod); // call parent method
+            ilgen.Emit(OpCodes.Stloc_0);
+
+            // After Method
+            ilgen.DeclareLocal(typeof(object));
+            ilgen.Emit_LdInst(castOptions);
+            loadNewInstanceOrThis();
+            ilgen.Emit(OpCodes.Ldloc_0); //load res from local
+            ilgen.Emit(OpCodes.Callvirt, typeof(CastOptions<T>).GetMethod("ExecAfterMethod", new Type[] { typeof(T), typeof(object) }));
+            ilgen.Emit(OpCodes.Ret); // return
+
+
+            if (!exposeMethod)
+            {
+                methodBuilder.SetCustomAttribute(new CustomAttributeBuilder(typeof(OpenApiIgnoreAttribute).GetConstructor(new Type[] { }), new object[] { }));
+            }
+            else
+            {
+                methodBuilder.SetCustomAttribute(new CustomAttributeBuilder(typeof(HttpPostAttribute).GetConstructor(new Type[] { typeof(string) }), new object[] { route }));
+            }
+
+            if (existingMethod.IsAbstract || existingMethod.IsVirtual)
+            {
+                classProxy.DefineMethodOverride(methodBuilder, existingMethod);
+            }
+
+            return methodBuilder;
         }
 
         public static void Emit_LdInst<TInst>(this ILGenerator il, TInst inst) where TInst : class
