@@ -77,18 +77,26 @@ namespace ServiceToController
             );
 
             var ilgen = methodBuilder.GetILGenerator();
-            var newInstance = castOptions.CreateInstanceFunc(type);
+
+            // define locals
+            ilgen.DeclareLocal(typeof(T)); // instance
+            ilgen.DeclareLocal(typeof(object)); // res
+
             void loadNewInstanceOrThis()
             {
                 if (castOptions.UseNewInstanceEveryMethod)
                 {
-                    ilgen.Emit_LdInst(newInstance);
+                    ilgen.Emit(OpCodes.Ldloc_0);
                 }
                 else
                 {
                     ilgen.Emit(OpCodes.Ldarg_0); // load this ref to stack
                 }
             }
+
+            ilgen.Emit_LdInst(castOptions);
+            ilgen.Emit(OpCodes.Callvirt, typeof(CastOptions<T>).GetMethod("CreateInstance", new Type[] { }));
+            ilgen.Emit(OpCodes.Stloc_0);
 
             // Before Method
             ilgen.Emit_LdInst(castOptions);
@@ -109,13 +117,13 @@ namespace ServiceToController
                 ilgen.Emit(OpCodes.Ldarg_S, i + 1); // push paramater to stack
             }
             ilgen.Emit(OpCodes.Callvirt, existingMethod); // call parent method
-            ilgen.Emit(OpCodes.Stloc_0);
+            ilgen.Emit(OpCodes.Stloc_1);
 
             // After Method
             ilgen.DeclareLocal(typeof(object));
             ilgen.Emit_LdInst(castOptions);
             loadNewInstanceOrThis();
-            ilgen.Emit(OpCodes.Ldloc_0); //load res from local
+            ilgen.Emit(OpCodes.Ldloc_1); //load res from local
             ilgen.Emit(OpCodes.Callvirt, typeof(CastOptions<T>).GetMethod("ExecAfterMethod", new Type[] { typeof(T), typeof(object) }));
             ilgen.Emit(OpCodes.Ret); // return
 

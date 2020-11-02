@@ -1,8 +1,13 @@
 ﻿using NSwag.Annotations;
+using System;
 using System.Threading.Tasks;
 
 public class MyService
 {
+    public DateTime? Created { get; set; }
+
+    public Task<DateTime?> GetCreated() => Task.FromResult(Created);
+
     public Task<MyObject> GetAll(MyObject obj)
     {
         return Task.FromResult(obj);

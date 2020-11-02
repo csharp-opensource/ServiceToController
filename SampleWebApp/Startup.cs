@@ -43,6 +43,12 @@ namespace SampleWebApp
                     return res;
                 },
                 MethodFilter = x => (x.ReturnType.IsGenericType && x.ReturnType.GetGenericTypeDefinition() == typeof(Task<>)),
+                CreateInstanceFunc = type =>
+                {
+                    var i = (MyService)Activator.CreateInstance(type);
+                    i.Created = DateTime.UtcNow;
+                    return i;
+                },
             });
             mainInstance.IsNew = false;
         }

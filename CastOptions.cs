@@ -11,6 +11,7 @@ namespace ServiceToController
         public bool AddTestMethod { get; set; } = true;
         public string? ApiPath { get; set; }
         public Func<Type, T> CreateInstanceFunc { get; set; } = (type) => (T)Activator.CreateInstance(type);
+        public T CreateInstance() => CreateInstanceFunc(typeof(T));
         public bool UseNewInstanceEveryMethod { get; set; } = false;
         public Action<T> BeforeMethod { get; set; } = _ => { };
         public Func<T, object, object> AfterMethod { get; set; } = (_, __) => __;
