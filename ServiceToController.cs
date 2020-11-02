@@ -43,8 +43,7 @@ namespace ServiceToController
 
             var props = type.GetProperties((BindingFlags)(-1)).Select(x => x.Name).ToList();
 
-            var allMethods = type
-                .GetMethods((BindingFlags)(-1));
+            var allMethods = type.GetMethods((BindingFlags)(-1));
 
             var methods = allMethods
                 .Where(castOptions.MethodFilter ?? (x => x != null))
@@ -55,11 +54,12 @@ namespace ServiceToController
 
             foreach (var existingMethod in allMethods)
             {
+                var exposeMethod = methods.Contains(existingMethod);
+                if (!exposeMethod) { continue; }
                 var methodName = castOptions.MethodNameRefactor(existingMethod.Name);
                 var counter = methodNames.GetValueOrDefault(methodName, 0);
                 methodNames[methodName] = counter + 1;
                 methodName += counter == 0 ? "" : counter.ToString();
-                var exposeMethod = methods.Contains(existingMethod);
                 classProxy.CopyMethod(existingMethod, castOptions, methodName, exposeMethod, $"{apiPath}/{methodName}");
             }
             return classProxy.CreateType();
