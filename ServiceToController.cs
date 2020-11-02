@@ -10,18 +10,18 @@ namespace ServiceToController
 {
     public static class ServiceToController
     {
-        public static object AddCastedService<T>(this IMvcBuilder mvcBuilder, CastOptions? castOptions = null)
+        public static T AddCastedService<T>(this IMvcBuilder mvcBuilder, CastOptions<T>? castOptions = null) where T : class
         {
-            castOptions ??= new CastOptions();
-            var castedType = Cast<T>(castOptions); // create controller type
+            castOptions ??= new CastOptions<T>();
+            var castedType = Cast(castOptions); // create controller type
             var instance = castOptions.CreateInstanceFunc(castedType);  // create instance of this type
             mvcBuilder.Services.AddSingleton(castedType, instance); // add controller as a service
             mvcBuilder.AddApplicationPart(castedType.Assembly); // map controller
             return instance;
         }
-        public static Type Cast<T>(CastOptions? castOptions = null)
+        public static Type Cast<T>(CastOptions<T>? castOptions = null) where T : class
         {
-            castOptions ??= new CastOptions();
+            castOptions ??= new CastOptions<T>();
             var type = typeof(T);
             var dynamicNamespace = new AssemblyName(type.GetTypeInfo().Assembly.GetTypes().Select(x => x.Namespace).First(x => x != null));
             var assemblyBuilder = AssemblyBuilder.DefineDynamicAssembly(dynamicNamespace, AssemblyBuilderAccess.Run).DefineDynamicModule(dynamicNamespace.Name);
@@ -30,9 +30,9 @@ namespace ServiceToController
             classProxy.CreatePassThroughConstructors(type);
             var apiPath = string.IsNullOrEmpty(castOptions.ApiPath) ? $"/api/{classProxy.Name}" : castOptions.ApiPath;
 
-            // classProxy.SetCustomAttribute(new CustomAttributeBuilder(typeof(ProducesAttribute).GetConstructor(new Type[] { typeof(string), typeof(string[]) }), new object[] { "application/json", new string[] { } }));
-            // classProxy.SetCustomAttribute(new CustomAttributeBuilder(typeof(RouteAttribute).GetConstructor(new Type[] { typeof(string) }), new object[] { "api/[controller]" }));
-            // classProxy.SetCustomAttribute(new CustomAttributeBuilder(typeof(ApiControllerAttribute).GetConstructor(new Type[] { }), new object[] { }));
+            classProxy.SetCustomAttribute(new CustomAttributeBuilder(typeof(RouteAttribute).GetConstructor(new Type[] { typeof(string) }), new object[] { "api/[controller]" }));
+            classProxy.SetCustomAttribute(new CustomAttributeBuilder(typeof(ProducesAttribute).GetConstructor(new Type[] { typeof(string), typeof(string[]) }), new object[] { "application/json", new string[] { } }));
+            classProxy.SetCustomAttribute(new CustomAttributeBuilder(typeof(ApiControllerAttribute).GetConstructor(new Type[] { }), new object[] { }));
 
             if (castOptions.AddTestMethod)
             {
@@ -43,10 +43,13 @@ namespace ServiceToController
                 ilgen.Emit(OpCodes.Ret);  // return
             }
 
+            var props = type.GetProperties((BindingFlags)(-1)).Select(x => x.Name).ToList();
+
             // get all parent methods tasks
             var methods = type
                 .GetMethods((BindingFlags)(-1))
                 .Where(castOptions.MethodFilter ?? (x => x != null))
+                .Where(x => !props.Any(p => x.Name == $"get_{p}" || x.Name == $"set_{p}"))
                 .ToList();
 
 
@@ -78,7 +81,7 @@ namespace ServiceToController
                 // Before Method
                 ilgen.Emit_LdInst(castOptions);
                 loadNewInstanceOrThis();
-                ilgen.Emit(OpCodes.Callvirt, typeof(CastOptions).GetMethod("ExecBeforeMethod", new Type[] { typeof(object) }));
+                ilgen.Emit(OpCodes.Callvirt, typeof(CastOptions<T>).GetMethod("ExecBeforeMethod", new Type[] { typeof(T) }));
                 loadNewInstanceOrThis();
                 for (int i = 0; i < existingParams.Count; i++)
                 {
@@ -101,7 +104,7 @@ namespace ServiceToController
                 ilgen.Emit_LdInst(castOptions);
                 loadNewInstanceOrThis();
                 ilgen.Emit(OpCodes.Ldloc_0); //load res from local
-                ilgen.Emit(OpCodes.Callvirt, typeof(CastOptions).GetMethod("ExecAfterMethod", new Type[] { typeof(object), typeof(object) }));
+                ilgen.Emit(OpCodes.Callvirt, typeof(CastOptions<T>).GetMethod("ExecAfterMethod", new Type[] { typeof(T), typeof(object) }));
                 ilgen.Emit(OpCodes.Ret); // return
 
                 methodBuilder.SetCustomAttribute(new CustomAttributeBuilder(typeof(HttpPostAttribute).GetConstructor(new Type[] { typeof(string) }), new object[] { $"{apiPath}/{methodName}" }));

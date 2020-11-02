@@ -30,7 +30,7 @@ namespace SampleWebApp
                 });
             });
             var builder = services.AddControllers().AddControllersAsServices();
-            dynamic mainInstance = builder.AddCastedService<MyService>(castOptions: new CastOptions
+            var mainInstance = builder.AddCastedService(castOptions: new CastOptions<MyService>
             {
                 UseNewInstanceEveryMethod = true,
                 BeforeMethod = (_) => Console.WriteLine("BeforeMethod"),
