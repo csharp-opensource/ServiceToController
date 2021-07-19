@@ -80,14 +80,14 @@ namespace ServiceToController
             var ilgen = methodBuilder.GetILGenerator();
 
             // define locals
-            ilgen.DeclareLocal(typeof(T)); // instance
+            ilgen.DeclareLocal(typeof(T)); // UseNewInstanceEveryMethod ref
             ilgen.DeclareLocal(typeof(object)); // res
 
             void loadNewInstanceOrThis()
             {
                 if (castOptions.UseNewInstanceEveryMethod)
                 {
-                    ilgen.Emit(OpCodes.Ldloc_0);
+                    ilgen.Emit(OpCodes.Ldloc_0); // UseNewInstanceEveryMethod ref
                 }
                 else
                 {
